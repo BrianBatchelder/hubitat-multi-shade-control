@@ -1,13 +1,13 @@
 // adapted from code written by Bruce Ravenel (https://community.hubitat.com/t/help-combining-three-shades-as-one/57028/23)
 definition(
-name: "Shade Control Instance",
-parent: "hubitat:Shade Controls",
-namespace: "biz.briansbrain",
-author: "Brian Batchelder",
-description: "Multi-shade control",
-category: "Convenience",
-iconUrl: "",
-iconX2Url: ""
+    name: "Shade Control Instance",
+    parent: "hubitat:Shade Controls",
+    namespace: "biz.briansbrain",
+    author: "Brian Batchelder",
+    description: "Multi-shade control",
+    category: "Convenience",
+    iconUrl: "",
+    iconX2Url: ""
 )
 
 preferences {
@@ -27,9 +27,12 @@ def mainPage() {
 }
 
 def updated() {
+    log.info "Shade Control Instance updated()"
     unsubscribe()
     initialize()
-    if (debugOutput) runIn(1800, disableDebugLogging)
+    def debugTimeout = 1800
+    log.debug "Will disable debug logging in $debugTimeout seconds"
+    if (debugOutput) runIn(debugTimeout, disableDebugLogging)
 }
 
 def installed() {
@@ -194,10 +197,10 @@ def levelHandler(evt) {
 }
 
 def debugLog(message) {
-    if (debugOutput) debugLog message
+    if (debugOutput) log.debug message
 }
 
 def disableDebugLogging(){
-	log.warn "debug logging disabled..."
-	device.updateSetting("debugOutput",[value:"false",type:"bool"])
+	log.warn "Disabling debug logging."
+	app.updateSetting("debugOutput",[value:"false",type:"bool"])
 }
