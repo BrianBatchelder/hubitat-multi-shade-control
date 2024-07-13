@@ -1,13 +1,13 @@
 // adapted from code written by Bruce Ravenel (https://community.hubitat.com/t/help-combining-three-shades-as-one/57028/23)
 definition(
-    name: "Shade Control Instance",
-    parent: "hubitat:Shade Controls",
-    namespace: "biz.briansbrain",
-    author: "Brian Batchelder",
-    description: "Multi-shade control",
-    category: "Convenience",
-    iconUrl: "",
-    iconX2Url: ""
+name: "Shade Control Instance",
+parent: "hubitat:Shade Controls",
+namespace: "biz.briansbrain",
+author: "Brian Batchelder",
+description: "Multi-shade control",
+category: "Convenience",
+iconUrl: "",
+iconX2Url: ""
 )
 
 preferences {
@@ -21,6 +21,7 @@ def mainPage() {
             if(origLabel) app.updateLabel(origLabel)
             input "controlShade", "capability.windowShade", title: "Select control shade", submitOnChange: true
             input "controlledShades", "capability.windowShade", title: "Select shades to control", submitOnChange: true, multiple: true
+		    input name: "debugOutput", type: "bool", title: "Enable debug logging?", defaultValue: false
         }
     }
 }
@@ -28,6 +29,7 @@ def mainPage() {
 def updated() {
     unsubscribe()
     initialize()
+    if (debugOutput) runIn(1800, disableDebugLogging)
 }
 
 def installed() {
@@ -35,13 +37,13 @@ def installed() {
 }
 
 void initialize() {
-    log.debug "------------------------------------------------------------"
+    debugLog "------------------------------------------------------------"
     log.info "Shade Control Instance initialize()"
     subscribe(controlShade, "windowShade", "controlWindowShadeHandler")
     subscribe(controlShade, "level", "levelHandler")
     subscribe(controlledShades, "windowShade", "instanceWindowShadeHandler")
     atomicState.initialized = true
-    // log.info "shades = " + shades
+    debugLog "shades = " + shades
     for (shade in controlledShades) {
         dumpShade(shade)
         updateShadeState(shade)
@@ -49,49 +51,48 @@ void initialize() {
 }
 
 def dumpShade(shade) {
+    if (!debugOutput) return
+
     String shadeId = "childShade-" + shade.getId()
-    // log.debug "id = " + shadeId
+    debugLog "id = " + shadeId
 
     String shadeLabel = shade.getLabel()
-    // log.info "label = " + shadeLabel
-//    atomicState.updateMapValue(shadeId, "label", shadeLabel)
+    debugLog "label = " + shadeLabel
 
     String shadeStatus = shade.getStatus()
     if (shadeStatus == "ACTIVE") {
-        log.debug "Shade $shadeId ($shadeLabel) is active" 
+        debugLog "Shade $shadeId ($shadeLabel) is active" 
     } else if (shadeStatus == "INACTIVE") {
-        log.debug "Shade $shadeId ($shadeLabel) is inactive"
+        debugLog "Shade $shadeId ($shadeLabel) is inactive"
     } else {
-        log.debug "Shade $shadeId ($shadeLabel) status is unknown: " + shadeStatus
+        debugLog "Shade $shadeId ($shadeLabel) status is unknown: " + shadeStatus
     }
- //   atomicState.updateMapValue(shadeId, "status", shadeStatus)
-    //log.debug "status = " + shadeStatus
+    debugLog "status = " + shadeStatus
 
-    // log.debug "states = " + shade.getCurrentStates()
-    // log.debug "supported attributes = " + shade.getSupportedAttributes()
+    debugLog "states = " + shade.getCurrentStates()
+    debugLog "supported attributes = " + shade.getSupportedAttributes()
     if (shade.hasAttribute("windowShade")) {
-        //log.debug "has windowShade attribute = " + shade.hasAttribute("windowShade")
+        debugLog "has windowShade attribute = " + shade.hasAttribute("windowShade")
         Object windowShade = shade.currentValue("windowShade")
-        log.debug "windowShade = " + shade.currentValue("windowShade")
+        debugLog "windowShade = " + shade.currentValue("windowShade")
         switch(windowShade) {
-            case "open": log.debug "Shade is open"; break
-            case "closed": log.debug "Shade is closed"; break
-            case "opening": log.debug "Shade is opening"; break
-            case "closing": log.debug "Shade is closing"; break
-            default: log.debug "Shade is in unknown state"; break
+            case "open": debugLog "Shade is open"; break
+            case "closed": debugLog "Shade is closed"; break
+            case "opening": debugLog "Shade is opening"; break
+            case "closing": debugLog "Shade is closing"; break
+            default: debugLog "Shade is in unknown state"; break
         }
-//        if (windowShade == "open") {
-//            log.debug "Shade is open"
-//        } else if (windowShade == "closed") {
-//            log.debug "Shade is closed"
-//        } else if (windowShade == "opening") {
-//            log.debug "Shade is opening"
- //       } else if (windowShade == "closing") {
-  //          log.debug "Shade is closing"
-  //      } else {
-   //         log.debug "Shade is in unknown state"
-    //    }
-//        atomicState.updateMapValue(shadeId, "windowShade", windowShade)
+       if (windowShade == "open") {
+           debugLog "Shade is open"
+       } else if (windowShade == "closed") {
+           debugLog "Shade is closed"
+       } else if (windowShade == "opening") {
+           debugLog "Shade is opening"
+       } else if (windowShade == "closing") {
+           debugLog "Shade is closing"
+       } else {
+           debugLog "Shade is in unknown state"
+       }
     }
 }
 
@@ -104,7 +105,7 @@ def updateShadeState(shade) {
         shadeState = shade.currentValue("windowShade")
     }
 
-    log.debug "Updating cached state of shade $shadeId ($shadeLabel) (status is $shadeStatus) to $shadeState"
+    debugLog "Updating cached state of shade $shadeId ($shadeLabel) (status is $shadeStatus) to $shadeState"
 
     atomicState.updateMapValue(shadeId, "label", shadeLabel)
     atomicState.updateMapValue(shadeId, "status", shadeStatus)
@@ -127,7 +128,7 @@ def processShadeStates() {
             String shadeLabel = value.label        
             String shadeStatus = value.status
             Object shadeState = value.windowShade
-            log.debug "Processing shade $shadeId ($shadeLabel), state = $shadeState"
+            debugLog "Processing shade $shadeId ($shadeLabel), state = $shadeState"
 
             if (shadeStatus == "ACTIVE") {
                 if (allShadesState == "uninitialized") {
@@ -139,64 +140,64 @@ def processShadeStates() {
                 }
             }
         } else {
-            log.debug "atomicState: skipping key = $key, value = $value"
+            debugLog "atomicState: skipping key = $key, value = $value"
         }
     }
     
     if (allShadesHaveSameState) {
-        log.debug "May update controlShade windowShade state to $allShadesState"
+        debugLog "May update controlShade windowShade state to $allShadesState"
         switch(allShadesState) {
             case "open":
             case "closed": updateControlShadeState(allShadesState); break
-            default: log.debug "Not updating controlShade windowShade state to $allShadesState."
+            default: debugLog "Not updating controlShade windowShade state to $allShadesState."
         }        
     } else {
-        log.debug "Will not update controlShade windowShade state (state is $allShadesState)"
+        debugLog "Will not update controlShade windowShade state (state is $allShadesState)"
     }
 }
 
 def updateControlShadeState(newState) {
-    log.debug "Updating controlShade windowShade state to $newState."
+    debugLog "Updating controlShade windowShade state to $newState."
     controlShade.sendEvent([ "windowShade":newState ]);
 }
 
 def updateAndProcessAllShadeStates() {
-    log.info "updateAndProcessAllShadeStates()"
+    debugLog "updateAndProcessAllShadeStates()"
     updateAllShadeStates()
     processShadeStates()
 }
 
 def controlWindowShadeHandler(evt) {
-    log.info "shade instance controlWindowShadeHandler(): $evt.name:$evt.value - will call on 'opening' shades.open() or on 'closing' shades.close()"
-    //log.debug "shade instance controlWindowShadeHandler(): event properties = " + evt.getProperties()
-    //log.debug "capability.windowShade getLabel() = " + controlShade.getLabel()
-    //log.debug "capability.windowShade windowShade setting = " + controlShade.getSetting("windowShade") // null
-    //log.debug "capability.windowShade windowShade state = " + controlShade.currentState("windowShade") // enum
-    //log.debug "capability.windowShade windowShade value = " + controlShade.currentValue("windowShade") // closing
-    //log.debug "capability.windowShade windowShade = " + controlShade.windowShade // null
-    //log.debug "capability.windowShade hasAttribute windowShade = " + controlShade.hasAttribute("windowShade") // true
-    //log.debug "capability.windowShade controlShade properties = " + controlShade.getProperties()
-    //log.debug "capability.windowShade controlShade states = " + controlShade.getCurrentStates()
-    switch(evt.value) { // REVISIT: is processShadeStates enough? Should probably refresh the states manually, right?
-        case "opening": controlledShades.open(); runIn(70, updateAndProcessAllShadeStates); break // greater than control shade transition (60)
-        case "closing": controlledShades.close(); runIn(70, updateAndProcessAllShadeStates); break
+    debugLog "shade instance controlWindowShadeHandler(): $evt.name:$evt.value - will call on 'opening' shades.open() or on 'closing' shades.close()"
+    switch(evt.value) {
+        case "opening": controlledShades.open(); runIn(70, updateAndProcessAllShadeStates); log.info "Opening shades"; break // greater than control shade transition (60)
+        case "closing": controlledShades.close(); runIn(70, updateAndProcessAllShadeStates); log.info "Closing shades"; break
     }
 }
 
 def instanceWindowShadeHandler(evt) {
-    log.info "shade instance instanceWindowShadeHandler(): $evt.name:$evt.value"
-    log.debug "shade instance instanceWindowShadeHandler(): deviceId = " + evt.deviceId
-    log.debug "shade instance instanceWindowShadeHandler(): getDeviceId() = " + evt.getDeviceId()
+    debugLog "shade instance instanceWindowShadeHandler(): $evt.name:$evt.value"
+    debugLog "shade instance instanceWindowShadeHandler(): deviceId = " + evt.deviceId
+    debugLog "shade instance instanceWindowShadeHandler(): getDeviceId() = " + evt.getDeviceId()
     Object shade = evt.getDevice()
-    log.debug "shade instance instanceWindowShadeHandler(): getDevice() = " + shade
+    debugLog "shade instance instanceWindowShadeHandler(): getDevice() = " + shade
     dumpShade(shade)
     updateShadeState(shade)
     processShadeStates()
-    // log.debug "shade instance instanceWindowShadeHandler(): event properties = " + evt.getProperties()
+    // debugLog "shade instance instanceWindowShadeHandler(): event properties = " + evt.getProperties()
 }
 
 def levelHandler(evt) {
-    log.info "shade instance control shade levelHandler(): $evt.name:$evt.value - setLevel(${evt.value}), setPosition(${evt.value})"
+    debugLog "shade instance control shade levelHandler(): $evt.name:$evt.value - setLevel(${evt.value}), setPosition(${evt.value})"
     controlledShades.setLevel((evt.value as Integer))
     controlledShades.setPosition((evt.value as Integer))
+}
+
+def debugLog(message) {
+    if (debugOutput) debugLog message
+}
+
+def disableDebugLogging(){
+	log.warn "debug logging disabled..."
+	device.updateSetting("debugOutput",[value:"false",type:"bool"])
 }
